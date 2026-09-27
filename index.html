@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ArcPay Links — Request USDC on Arc</title>
+<meta name="description" content="Generate shareable payment links for USDC on the Arc network. No account, no backend — just a link.">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --ink: #1a1d21;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --accent: #0e7c6b;
+    --accent-dark: #0a5f53;
+    --danger: #b91c1c;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 64px;
+  }
+  .wrap { width: 100%; max-width: 520px; }
+  header { text-align: center; margin-bottom: 24px; }
+  header h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.02em; }
+  header p { margin: 0; color: var(--muted); font-size: 14px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 16px 0 6px; }
+  label:first-of-type { margin-top: 0; }
+  input, textarea {
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--ink);
+  }
+  input:focus, textarea:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 64px; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .error { font-size: 13px; color: var(--danger); margin-top: 8px; display: none; }
+  button {
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  button:hover { background: var(--accent-dark); }
+  button:disabled { background: #9ca3af; cursor: not-allowed; }
+  button.secondary {
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    margin-top: 10px;
+  }
+  button.secondary:hover { background: #f3f4f6; }
+  .result { margin-top: 20px; display: none; }
+  .linkbox {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    margin-top: 8px;
+  }
+  .linkbox input { font-size: 13px; font-family: ui-monospace, monospace; }
+  .linkbox button { width: auto; margin-top: 0; padding: 0 18px; white-space: nowrap; }
+  .pay-summary { text-align: center; }
+  .pay-amount { font-size: 44px; font-weight: 800; letter-spacing: -0.03em; margin: 8px 0 2px; }
+  .pay-amount small { font-size: 20px; font-weight: 600; color: var(--muted); }
+  .pay-to { font-size: 13px; color: var(--muted); word-break: break-all; }
+  .pay-memo {
+    margin: 16px 0 0;
+    padding: 12px;
+    background: #f9fafb;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font-size: 14px;
+  }
+  .status { font-size: 13px; color: var(--muted); margin-top: 12px; text-align: center; word-break: break-all; }
+  .status a { color: var(--accent); }
+  .txlink { font-family: ui-monospace, monospace; font-size: 12px; }
+  .netbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--muted);
+    background: #eef2f1;
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin-bottom: 16px;
+  }
+  .netbar .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 6px; }
+  footer { margin-top: 28px; font-size: 12px; color: var(--muted); text-align: center; max-width: 520px; }
+  footer a { color: var(--muted); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ArcPay Links</h1>
+    <p>Request USDC on Arc — share a link, get paid. No account. No backend.</p>
+  </header>
+
+  <div class="netbar"><span><span class="dot"></span>Arc mainnet</span><span>gas paid in USDC</span></div>
+
+  <!-- ============ VIEW: LINK GENERATOR ============ -->
+  <div class="card" id="view-generator">
+    <label for="in-to">Your Arc wallet address</label>
+    <input id="in-to" type="text" placeholder="0x…" autocomplete="off" spellcheck="false">
+    <div class="hint">Payments go to this address on Arc mainnet.</div>
+
+    <label for="in-amount">Amount (USDC)</label>
+    <input id="in-amount" type="text" inputmode="decimal" placeholder="25.00" autocomplete="off">
+    <div class="hint">Up to 6 decimal places.</div>
+
+    <label for="in-memo">Note <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+    <textarea id="in-memo" maxlength="140" placeholder="e.g. Logo design — invoice #12"></textarea>
+
+    <div class="error" id="gen-error"></div>
+
+    <button id="btn-generate">Generate payment link</button>
+
+    <div class="result" id="gen-result">
+      <label>Share this link</label>
+      <div class="linkbox">
+        <input id="out-link" type="text" readonly>
+        <button id="btn-copy">Copy</button>
+      </div>
+      <div class="hint" id="copy-hint">Anyone who opens it can pay you in one tap with their wallet.</div>
+    </div>
+  </div>
+
+  <!-- ============ VIEW: PAYMENT ============ -->
+  <div class="card hidden" id="view-pay">
+    <div class="pay-summary">
+      <div style="font-size:13px;color:var(--muted)">You are paying</div>
+      <div class="pay-amount"><span id="pay-amount">0.00</span> <small>USDC</small></div>
+      <div class="pay-to">to <span id="pay-to"></span></div>
+      <div class="pay-memo hidden" id="pay-memo-wrap">“<span id="pay-memo"></span>”</div>
+    </div>
+
+    <div class="error" id="pay-error"></div>
+
+    <button id="btn-pay">Connect wallet &amp; pay</button>
+    <button class="secondary" id="btn-back">← Create your own link</button>
+
+    <div class="status" id="pay-status"></div>
+  </div>
+
+  <footer>
+    ArcPay Links runs entirely in your browser. It never sees your keys — your wallet
+    signs everything. USDC transfers use Arc's native USDC contract.
+    <br><a href="https://explorer.arc.io" target="_blank" rel="noopener">Arc explorer</a>
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"
+        integrity="sha384-6Zl0Pc8zjSz8KvmNeXRvUQgY4ryFb+BwDvKCmLYcBME0joAaru491tQgi9B7zsMM"
+        crossorigin="anonymous"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------
+   * Arc mainnet constants.
+   * Verified against official Circle/Arc sources (see README.md):
+   *  - Chain ID 5042 (0x13B2), RPC https://rpc.mainnet.arc.io
+   *  - USDC ERC-20 interface: 0x3600...0000, 6 decimals
+   *    (native gas balance uses 18 decimals; same underlying balance)
+   * ------------------------------------------------------------------ */
+  var ARC = {
+    chainId: 5042,
+    chainIdHex: '0x13B2',
+    chainName: 'Arc',
+    rpcUrl: 'https://rpc.mainnet.arc.io',
+    explorer: 'https://explorer.arc.io',
+    usdc: '0x3600000000000000000000000000000000000000',
+    usdcDecimals: 6
+  };
+
+  var ERC20_ABI = [
+    'function transfer(address to, uint256 amount) returns (bool)',
+    'function balanceOf(address account) view returns (uint256)'
+  ];
+
+  var MAX_MEMO = 140;
+
+  /* ---------------- helpers ---------------- */
+
+  function $(id) { return document.getElementById(id); }
+
+  function showError(id, msg) {
+    var el = $(id);
+    el.textContent = msg;   /* textContent: never interpret user input as HTML */
+    el.style.display = msg ? 'block' : 'none';
+  }
+
+  function validAddress(a) {
+    try { return window.ethers && ethers.isAddress(a); }
+    catch (e) { return false; }
+  }
+
+  /* Amount rules: numeric, > 0, at most 6 decimals, sane upper bound. */
+  function parseAmount(str) {
+    if (typeof str !== 'string') return null;
+    str = str.trim();
+    if (!/^\d+(\.\d{1,6})?$/.test(str)) return null;
+    var n = Number(str);
+    if (!isFinite(n) || n <= 0 || n > 1000000000) return null;
+    return str;
+  }
+
+  function cleanMemo(s) {
+    return (s || '').trim().slice(0, MAX_MEMO);
+  }
+
+  function baseUrl() {
+    /* Shareable link: same page, query params carry the invoice. */
+    return window.location.href.split('?')[0].split('#')[0];
+  }
+
+  /* ---------------- view: generator ---------------- */
+
+  $('btn-generate').addEventListener('click', function () {
+    showError('gen-error', '');
+    var to = $('in-to').value.trim();
+    var amount = parseAmount($('in-amount').value);
+    var memo = cleanMemo($('in-memo').value);
+
+    if (!window.ethers) {
+      showError('gen-error', 'Could not load the wallet library. Check your connection and reload.');
+      return;
+    }
+    if (!validAddress(to)) {
+      showError('gen-error', 'Enter a valid Arc wallet address (0x…).');
+      return;
+    }
+    if (!amount) {
+      showError('gen-error', 'Enter an amount greater than 0, with at most 6 decimals.');
+      return;
+    }
+
+    var url = baseUrl()
+      + '?to=' + encodeURIComponent(to)
+      + '&amount=' + encodeURIComponent(amount)
+      + (memo ? '&memo=' + encodeURIComponent(memo) : '');
+
+    $('out-link').value = url;
+    $('gen-result').style.display = 'block';
+    $('out-link').select();
+  });
+
+  $('btn-copy').addEventListener('click', function () {
+    var input = $('out-link');
+    input.select();
+    function done() { $('copy-hint').textContent = 'Copied — paste it anywhere.'; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(input.value).then(done, function () {
+        document.execCommand('copy');
+        done();
+      });
+    } else {
+      document.execCommand('copy');
+      done();
+    }
+  });
+
+  /* ---------------- view: payment ---------------- */
+
+  var invoice = null;
+
+  function readInvoice() {
+    var q = new URLSearchParams(window.location.search);
+    var to = (q.get('to') || '').trim();
+    var amount = parseAmount(q.get('amount') || '');
+    var memo = cleanMemo(q.get('memo') || '');
+    if (!to || !amount) return null;
+    if (!window.ethers || !validAddress(to)) return null;
+    return { to: to, amount: amount, memo: memo };
+  }
+
+  function showPayView(inv) {
+    $('view-generator').classList.add('hidden');
+    $('view-pay').classList.remove('hidden');
+    $('pay-amount').textContent = inv.amount;
+    $('pay-to').textContent = inv.to;
+    if (inv.memo) {
+      $('pay-memo').textContent = inv.memo;
+      $('pay-memo-wrap').classList.remove('hidden');
+    }
+  }
+
+  $('btn-back').addEventListener('click', function () {
+    window.location.href = baseUrl();
+  });
+
+  function setStatus(html) {
+    /* Only ever called with internally-built HTML (tx hashes, explorer URLs). */
+    $('pay-status').innerHTML = html;
+  }
+
+  function ensureWallet() {
+    if (!window.ethereum) {
+      showError('pay-error', 'No wallet found. Install MetaMask, Rabby, or another EVM wallet, then reload.');
+      return null;
+    }
+    return window.ethereum;
+  }
+
+  function switchToArc(eth) {
+    return eth.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: ARC.chainIdHex }]
+    }).catch(function (err) {
+      if (err && err.code === 4902) {
+        /* Arc not added yet — add it. */
+        return eth.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: ARC.chainIdHex,
+            chainName: ARC.chainName,
+            nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+            rpcUrls: [ARC.rpcUrl],
+            blockExplorerUrls: [ARC.explorer]
+          }]
+        });
+      }
+      throw err;
+    });
+  }
+
+  $('btn-pay').addEventListener('click', function () {
+    if (!invoice) return;
+    showError('pay-error', '');
+
+    var eth = ensureWallet();
+    if (!eth) return;
+
+    var btn = $('btn-pay');
+    btn.disabled = true;
+    btn.textContent = 'Working…';
+
+    function resetBtn(label) {
+      btn.disabled = false;
+      btn.textContent = label || 'Connect wallet & pay';
+    }
+
+    switchToArc(eth).then(function () {
+      var provider = new ethers.BrowserProvider(eth);
+      return provider.getSigner().then(function (signer) {
+        return signer.getAddress().then(function (me) {
+          if (me.toLowerCase() === invoice.to.toLowerCase()) {
+            throw new Error('This link pays your own address — open it in a different wallet to test.');
+          }
+          var token = new ethers.Contract(ARC.usdc, ERC20_ABI, signer);
+          var value = ethers.parseUnits(invoice.amount, ARC.usdcDecimals);
+          return token.balanceOf(me).then(function (bal) {
+            if (bal < value) {
+              var have = ethers.formatUnits(bal, ARC.usdcDecimals);
+              throw new Error('Insufficient USDC on Arc. You have ' + have + ' USDC.');
+            }
+            setStatus('Waiting for signature…');
+            return token.transfer(invoice.to, value);
+          });
+        });
+      });
+    }).then(function (tx) {
+      setStatus('Sent. Confirming…<br><span class="txlink">' +
+        '<a href="' + ARC.explorer + '/tx/' + tx.hash + '" target="_blank" rel="noopener">' +
+        tx.hash.slice(0, 18) + '…</a></span>');
+      return tx.wait();
+    }).then(function (receipt) {
+      var ok = receipt && receipt.status === 1;
+      setStatus(ok
+        ? '✅ Paid <b>' + invoice.amount + ' USDC</b> on Arc.<br><span class="txlink">' +
+          '<a href="' + ARC.explorer + '/tx/' + receipt.hash + '" target="_blank" rel="noopener">View on explorer</a></span>'
+        : '❌ Transaction failed on-chain. Check the explorer for details.');
+      resetBtn(ok ? 'Paid ✓' : 'Try again');
+    }).catch(function (err) {
+      var msg = (err && err.message) || 'Transaction failed.';
+      if (err && err.code === 4001) msg = 'You rejected the transaction in your wallet.';
+      if (err && err.code === -32603) msg = 'Wallet error — is Arc (chain 5042) reachable? Try again.';
+      showError('pay-error', msg.length > 220 ? msg.slice(0, 220) + '…' : msg);
+      setStatus('');
+      resetBtn();
+    });
+  });
+
+  /* ---------------- boot ---------------- */
+
+  if (!window.ethers) {
+    /* ethers CDN failed: generator still validates, payment needs the lib. */
+    showError('gen-error', 'Wallet library failed to load — check your connection and reload.');
+  }
+
+  invoice = readInvoice();
+  if (invoice) {
+    showPayView(invoice);
+  } else if (window.location.search) {
+    /* Params present but invalid — tell the user instead of failing silently. */
+    showError('gen-error', 'That payment link is malformed (bad address or amount). Ask the sender for a fresh link.');
+  }
+})();
+</script>
+</body>
+</html>
